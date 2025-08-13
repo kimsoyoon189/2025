@@ -1,2 +1,2 @@
 import streamlit as st
-st.title('도라에몽')
+st.title('화덕피자로제파스타낙곱새')
