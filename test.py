@@ -45,7 +45,7 @@ def filter_styles(face_shape, gender, length, bang, personal_color, top_k=5):
     return filtered[:top_k]
 
 # ===================== Streamlit UI =====================
-st.title("💇‍♀️ 맞춤 헤어스타일 추천 (조건 필터링)")
+st.title("💇‍♂️ 나에게 꼭 맞는 헤어스타일, 얼굴형·컬러·앞머리까지 완벽 추천")
 
 face_shape = st.selectbox("👉 얼굴형", list(FACE_ALIASES.keys()))
 gender = st.selectbox("👉 성별", ["무관", "남성", "여성"])
@@ -79,6 +79,7 @@ if st.button("✨ 추천 받기"):
                         unsafe_allow_html=True
                     )
                     st.caption(f"{c['name']} ({c['hex']})")
+
 
 
 
