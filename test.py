@@ -1,82 +1,84 @@
+# streamlit run app.py
 import streamlit as st
-import random
 
-# -------------------------------
-# 데이터 정의
-# -------------------------------
+# ===================== 데이터 =====================
+COLOR_PALETTES = {
+    "봄웜": [{"name": "라이트 브라운", "hex": "#C8A165"}, {"name": "골드 브론즈", "hex": "#D4A373"}, {"name": "꿀카라멜", "hex": "#E6B980"}],
+    "여름쿨": [{"name": "애쉬 브라운", "hex": "#8B7C6E"}, {"name": "소프트 블랙", "hex": "#2F2F2F"}, {"name": "로즈 브라운", "hex": "#A97474"}],
+    "가을웜": [{"name": "다크 초콜릿 브라운", "hex": "#4B2E2E"}, {"name": "카퍼 레드", "hex": "#B34729"}, {"name": "올리브 브라운", "hex": "#6B4C3B"}],
+    "겨울쿨": [{"name": "블루 블랙", "hex": "#101820"}, {"name": "딥 와인", "hex": "#5C1A33"}, {"name": "애쉬 블론드", "hex": "#D8CFC4"}],
+}
+
+FACE_ALIASES = {
+    "계란형": "oval", "긴얼굴": "long", "둥근형": "round", "각진형": "square",
+    "하트형": "heart", "다이아": "diamond", "삼각형": "triangle"
+}
+
 HAIR_RULES = [
-    {
-        "name": "롱 레이어드 웨이브 + 사이드 파트",
-        "tags": ["여성", "롱", "레이어드", "웨이브"],
-        "fit": {"oval": 3, "round": 2, "square": 2, "heart": 3, "long": 1, "diamond": 3, "triangle": 2},
-        "color_fit": ["봄웜", "가을웜"],
-        "bangs": ["없음", "시스루"],
-        "notes": "사이드 파트로 비대칭을 주면 광대·턱선을 부드럽게.",
-        "maintenance": "중",
-        "dye": ["애쉬브라운", "초코브라운", "로즈골드"]
-    },
-    {
-        "name": "턱선 길이의 블런트 보브",
-        "tags": ["여성", "숏", "보브", "스트레이트"],
-        "fit": {"oval": 3, "round": 1, "square": 2, "heart": 3, "long": 2, "diamond": 2, "triangle": 2},
-        "color_fit": ["여름쿨", "겨울쿨"],
-        "bangs": ["없음", "풀뱅"],
-        "notes": "끝선이 둔탁해 볼륨감↑, 목선 강조.",
-        "maintenance": "중",
-        "dye": ["블루블랙", "와인레드", "애쉬그레이"]
-    },
-    {
-        "name": "텍스처 픽시 크롭",
-        "tags": ["여성", "남성", "숏", "픽시"],
-        "fit": {"oval": 3, "round": 2, "square": 3, "heart": 2, "long": 3, "diamond": 3, "triangle": 2},
-        "color_fit": ["겨울쿨"],
-        "bangs": ["없음"],
-        "notes": "짧은 숏컷으로 시원하고 세련된 인상, 직모보단 텍스처 넣기 추천.",
-        "maintenance": "하",
-        "dye": ["블랙", "애쉬블루", "실버"]
-    }
+    {"name": "텍스처 픽시 크롭", "style_desc": "윗머리 볼륨 살린 숏컷", "tags": ["숏", "픽시", "텍스처"], "color_fit": ["겨울쿨", "여름쿨"], "maintenance": "하"},
+    {"name": "롱 레이어드 웨이브 + 사이드 파트", "style_desc": "긴 웨이브, 부드러운 얼굴선", "tags": ["롱", "레이어드", "웨이브"], "color_fit": ["봄웜", "가을웜"], "maintenance": "중"},
+    {"name": "턱선 길이의 블런트 보브", "style_desc": "모던하고 깔끔한 단발", "tags": ["숏", "보브", "스트레이트"], "color_fit": ["여름쿨", "겨울쿨"], "maintenance": "중"},
+    {"name": "미디엄 커튼뱅 + C컬", "style_desc": "C컬과 커튼뱅으로 얼굴 감싸기", "tags": ["미디엄", "앞머리", "C컬"], "color_fit": ["봄웜", "여름쿨"], "maintenance": "하"},
+    {"name": "센터 파트 스트레이트 롱", "style_desc": "시크한 긴 생머리", "tags": ["롱", "스트레이트"], "color_fit": ["겨울쿨"], "maintenance": "하"},
 ]
 
-# -------------------------------
-# 추천 함수
-# -------------------------------
-def recommend_style(face_shape, personal_color, bang_preference):
-    results = []
-    for style in HAIR_RULES:
-        score = style["fit"].get(face_shape, 0)
-        if personal_color in style["color_fit"]:
-            score += 1
-        if bang_preference in style["bangs"]:
-            score += 1
-        if score > 0:
-            results.append((score, style))
-    results.sort(key=lambda x: -x[0])
-    return results
+# ===================== 정규화 =====================
+def normalize_face(face_shape: str) -> str:
+    return FACE_ALIASES.get(face_shape, face_shape.lower())
 
-# -------------------------------
-# Streamlit UI
-# -------------------------------
-st.set_page_config(page_title="헤어스타일 추천기", page_icon="💇‍♀️", layout="centered")
+# ===================== 추천 필터 =====================
+def filter_styles(face_shape, gender, length, bang, personal_color, top_k=5):
+    filtered = []
+    for s in HAIR_RULES:
+        # 길이 체크
+        if length != "무관" and length not in s["tags"]:
+            continue
+        # 앞머리 체크
+        if bang == "있음" and "앞머리" not in s["tags"]:
+            continue
+        if bang == "없음" and "앞머리" in s["tags"]:
+            continue
+        # 퍼스널컬러 체크
+        if personal_color != "무관" and personal_color not in s.get("color_fit", []):
+            continue
+        filtered.append(s)
+    return filtered[:top_k]
 
-st.title("💇 퍼스널 헤어스타일 추천기")
-st.write("얼굴형, 퍼스널컬러, 앞머리 여부를 입력하면 어울리는 스타일과 염색 컬러를 추천해드려요 ✨")
+# ===================== Streamlit UI =====================
+st.title("💇‍♀️ 맞춤 헤어스타일 추천 (조건 필터링)")
 
-# 입력값 받기
-face_shape = st.selectbox("👤 얼굴형 선택", ["oval", "round", "square", "heart", "long", "diamond", "triangle"])
-personal_color = st.selectbox("🎨 퍼스널컬러 선택", ["봄웜", "여름쿨", "가을웜", "겨울쿨"])
-bang_preference = st.selectbox("✂️ 앞머리 스타일", ["없음", "있음", "시스루", "풀뱅"])
+face_shape = st.selectbox("👉 얼굴형", list(FACE_ALIASES.keys()))
+gender = st.selectbox("👉 성별", ["무관", "남성", "여성"])
+length = st.selectbox("👉 원하는 길이", ["무관", "숏", "미디엄", "롱"])
+bang = st.selectbox("👉 앞머리 여부", ["무관", "있음", "없음"])
+personal_color = st.selectbox("👉 퍼스널컬러", ["무관", "봄웜", "여름쿨", "가을웜", "겨울쿨"])
 
-if st.button("추천 받기 🎲"):
-    results = recommend_style(face_shape, personal_color, bang_preference)
+if st.button("✨ 추천 받기"):
+    results = filter_styles(face_shape, gender, length, bang, personal_color)
+    
     if not results:
-        st.warning("조건에 맞는 스타일이 없어요 😢 옵션을 바꿔보세요.")
+        st.warning("조건에 맞는 스타일이 없습니다. 옵션을 조정해보세요.")
     else:
-        best = results[0][1]
-        st.success(f"✨ 추천 스타일: **{best['name']}**")
-        st.write(f"📌 특징: {best['notes']}")
-        st.write(f"🔧 손질 난이도: {best['maintenance']}")
-        st.write(f"🎨 어울리는 염색 컬러: {', '.join(best['dye'])}")
-        st.write(f"💡 앞머리 추천: {', '.join(best['bangs'])}")
+        st.subheader("추천 헤어스타일")
+        for i, r in enumerate(results, 1):
+            with st.expander(f"{i}. {r['name']}"):
+                st.write(f"**스타일 설명:** {r['style_desc']}")
+                st.write(f"**태그:** {', '.join(r['tags'])}")
+                if r.get("color_fit"):
+                    st.write(f"**추천 퍼스널컬러:** {', '.join(r['color_fit'])}")
+                st.write(f"**손질 난이도:** {r['maintenance']}")
+        
+        # 퍼스널컬러 팔레트
+        if personal_color != "무관" and personal_color in COLOR_PALETTES:
+            st.subheader(f"🎨 {personal_color}에게 어울리는 염색 컬러 팔레트")
+            cols = st.columns(len(COLOR_PALETTES[personal_color]))
+            for idx, c in enumerate(COLOR_PALETTES[personal_color]):
+                with cols[idx]:
+                    st.markdown(
+                        f"<div style='background-color:{c['hex']}; width:100px; height:100px; border-radius:12px; border:1px solid rgba(0,0,0,0.08)'></div>",
+                        unsafe_allow_html=True
+                    )
+                    st.caption(f"{c['name']} ({c['hex']})")
 
 
 
